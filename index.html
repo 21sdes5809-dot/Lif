@@ -959,6 +959,15 @@ body.egg-lock{overflow:hidden}
 .yj-chat-options button:hover,.yj-chat-close:hover{background:#a9c8b51c;border-color:#b6d0c288}
 .yj-chat-close{position:absolute;right:18px;top:16px;padding:5px 9px;color:#aab9b1}
 .yj-chat-note{font-size:10px;color:#82938a;margin-top:16px;letter-spacing:.08em}.yj-ai-settings{display:flex;gap:7px;align-items:center;margin-top:10px;flex-wrap:wrap}.yj-ai-settings input{flex:1;min-width:180px;margin:0;padding:8px 10px;background:#0b1110;border:1px solid #91aa9c55;color:#e9efeb;font:12px inherit}.yj-ai-settings button{border:1px solid #91aa9c55;background:#ffffff09;color:#dce9e1;padding:8px 10px;font:12px inherit;cursor:pointer}.yj-ai-status{font-size:11px;color:#9eb7aa;width:100%}
+.yj-contact-launcher{position:fixed;right:18px;bottom:76px;z-index:9400;display:none;border:1px solid #91aa9c77;background:#101816;color:#e5eee8;padding:11px 15px;font:600 12px/1.2 inherit;letter-spacing:.08em;box-shadow:0 8px 26px #0008;cursor:pointer}
+.yj-contact-launcher.unlocked{display:block}
+.yj-contact-panel{position:fixed;right:18px;bottom:126px;z-index:9450;width:min(290px,calc(100vw - 36px));padding:16px;background:#101816;color:#e5eee8;border:1px solid #91aa9c66;box-shadow:0 18px 50px #000b;display:none}
+.yj-contact-panel.on{display:block}
+.yj-contact-heading{font:10px/1.4 ui-monospace,monospace;letter-spacing:.16em;color:#9eb7aa;margin-bottom:12px}
+.yj-contact-entry{width:100%;display:flex;align-items:center;justify-content:space-between;text-align:left;border:1px solid #91aa9c55;background:#ffffff08;color:#e5eee8;padding:12px;font:inherit;cursor:pointer}
+.yj-contact-entry small{display:block;color:#9eb7aa;font-size:10px;margin-top:4px}
+.yj-contact-entry:hover{background:#a9c8b51c;border-color:#b6d0c288}
+@media(max-width:520px){.yj-contact-launcher{right:12px;bottom:68px}.yj-contact-panel{right:12px;bottom:116px}}
 @media(prefers-reduced-motion:reduce){.yj-chat-backdrop,.yj-chat-panel{transition:none}}
 
 /* ===== 유준영 프로필의 별도 이스터에그: 시네마틱 아카이브 연출 ===== */
@@ -1777,6 +1786,9 @@ const navParent=id=>{
  return null;
 };
 function show(id,fromAlias=null,opts={}){
+ // 문서 전환 시 끝난 이스터에그의 스크롤 잠금이 남아 있으면 해제한다.
+ const activeOverlay=document.querySelector('.yj-egg-screen.on,.egg-layer.on,.egg-dialog.on');
+ if(!activeOverlay)document.body.classList.remove('egg-lock');
  if(!sections.some(s=>s.id===id))id='overview';
  const docSearchPanel=document.getElementById('document-search-panel');if(docSearchPanel)docSearchPanel.hidden=(id==='overview');
 
@@ -2143,13 +2155,16 @@ addEventListener('scroll',()=>toTop.classList.toggle('show',scrollY>600),{passiv
  const profile=section?.querySelector('.spoiler-profile .profile-infobox');
  if(!section||!profile)return;
  const KEY='world-atlas-yujunyoung-egg-seen';
- let seen=false;try{seen=sessionStorage.getItem(KEY)==='1'}catch(e){}
- if(seen)return;
+ const CONTACT_UNLOCK_KEY='world-atlas-contact-unlocked-v1';
+ let seen=false,contactWasUnlocked=false;
+ try{seen=sessionStorage.getItem(KEY)==='1'}catch(e){}
+ // 연락처 해제 상태는 세션이 아니라 브라우저의 영구 저장소에 보관한다.
+ try{contactWasUnlocked=localStorage.getItem(CONTACT_UNLOCK_KEY)==='1'}catch(e){}
  profile.classList.add('egg-target');
  const screen=document.createElement('div');screen.className='yj-egg-screen';screen.setAttribute('aria-hidden','true');
  screen.innerHTML='<div class="yj-egg-aura"></div><div class="yj-egg-scan"></div><div class="yj-egg-frame"><span>WORLD ATLAS / RESTRICTED</span><span>ARCHIVE SIGNAL · 07</span></div>';
  const text=document.createElement('div');text.className='yj-egg-text';screen.appendChild(text);document.body.appendChild(screen);
- let taps=0,lastTap=0,running=false,eggCompleted=seen;
+ let taps=0,lastTap=0,running=false,eggCompleted=(seen||contactWasUnlocked);
  const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
  async function play(){
   if(running||seen)return;running=true;seen=true;
@@ -2171,12 +2186,26 @@ addEventListener('scroll',()=>toTop.classList.toggle('show',scrollY>600),{passiv
   await wait(1900);
   screen.classList.remove('on');screen.setAttribute('aria-hidden','true');document.body.classList.remove('egg-lock');
   if(typeof show==='function')show('overview');else location.hash='#overview';
-  running=false;eggCompleted=true;taps=0;lastTap=0;
+  running=false;setContactUnlocked();taps=0;lastTap=0;
  }
  // 첫 연타는 기존 이스터에그, 연출이 끝난 뒤 다시 연타하면 짧은 대화를 연다.
  const chat=document.createElement('div');chat.className='yj-chat-backdrop';chat.setAttribute('aria-hidden','true');
  chat.innerHTML='<div class="yj-chat-panel" role="dialog" aria-modal="true" aria-labelledby="yj-chat-name"><div class="yj-chat-kicker">WORLD ATLAS / PRIVATE CHANNEL</div><button type="button" class="yj-chat-close" aria-label="대화 닫기">닫기 ×</button><h3 class="yj-chat-name" id="yj-chat-name">A</h3><p class="yj-chat-line">또 기밀파일을 열어 봤더군.\n내가 직접 말하러 올 정도면 무슨 뜻인지 알겠지. 할 말 있어?</p><div class="yj-chat-log" aria-live="polite"></div><div class="yj-chat-options"></div><details class="yj-ai-settings"><summary>AI 설정</summary><label class="yj-ai-toggle-row"><span>AI 대화 사용</span><input class="yj-ai-toggle" type="checkbox" checked></label><div class="yj-ai-status">AI가 켜져 있습니다. 설정은 이 기기에 저장됩니다.</div></details><form class="yj-chat-compose"><input type="text" maxlength="240" autocomplete="off" placeholder="유준영에게 말을 건다…" aria-label="메시지 입력"><button type="submit">보내기</button></form><div class="yj-chat-options yj-chat-controls"><button type="button" class="yj-chat-reset">대화 기록 초기화</button></div><div class="yj-chat-note">대화 기록과 AI 켜기/끄기 설정은 이 기기에 저장됩니다.</div></div>';
  document.body.appendChild(chat);
+ // 이스터에그를 이미 완료한 방문자에게도 연락처 UI를 항상 복원한다.
+ const contactLauncher=document.createElement('button');contactLauncher.type='button';contactLauncher.className='yj-contact-launcher'+(eggCompleted?' unlocked':'');contactLauncher.textContent='연락처';contactLauncher.setAttribute('aria-expanded','false');
+ const contactPanel=document.createElement('div');contactPanel.className='yj-contact-panel';contactPanel.setAttribute('aria-label','연락처 목록');
+ contactPanel.innerHTML='<div class="yj-contact-heading">WORLD ATLAS / CONTACTS</div><button type="button" class="yj-contact-entry"><span><b>A</b><small>비공개 채널 · 접속 가능</small></span><span>열기 →</span></button>';
+ document.body.append(contactLauncher,contactPanel);
+ const contactEntry=contactPanel.querySelector('.yj-contact-entry');
+ const setContactUnlocked=()=>{
+  eggCompleted=true;
+  contactLauncher.classList.add('unlocked');
+  try{localStorage.setItem(CONTACT_UNLOCK_KEY,'1')}catch(e){}
+ };
+ contactLauncher.addEventListener('click',()=>{const open=!contactPanel.classList.contains('on');contactPanel.classList.toggle('on',open);contactLauncher.setAttribute('aria-expanded',String(open));});
+ contactEntry.addEventListener('click',()=>{contactPanel.classList.remove('on');contactLauncher.setAttribute('aria-expanded','false');openChat();});
+ if(eggCompleted)setContactUnlocked();
  const chatLine=chat.querySelector('.yj-chat-line'),chatOptions=chat.querySelector('.yj-chat-options');
  const chatLog=chat.querySelector('.yj-chat-log'),chatForm=chat.querySelector('.yj-chat-compose');
  const chatInput=chatForm.querySelector('input');
@@ -2207,7 +2236,7 @@ addEventListener('scroll',()=>toTop.classList.toggle('show',scrollY>600),{passiv
  aiStatus.textContent=aiToggle.checked?'AI가 켜져 있습니다.':'AI가 꺼져 있습니다. 기본 대화 방식으로 답변합니다.';
  aiToggle.addEventListener('change',()=>{try{localStorage.setItem(AI_ENABLED_KEY,String(aiToggle.checked));}catch(e){}aiStatus.textContent=aiToggle.checked?'AI가 켜졌습니다.':'AI가 꺼졌습니다. 기본 대화 방식으로 답변합니다.';});
  let conversationCount=0,lastTopic='';
- const closeChat=()=>{chat.classList.remove('on');chat.setAttribute('aria-hidden','true');};
+ const closeChat=()=>{chat.classList.remove('on');chat.setAttribute('aria-hidden','true');chatInput.disabled=false;chatForm.querySelector('button').disabled=false;};
  const addMessage=(who,message)=>{
   const item=document.createElement('div');item.className='yj-chat-message '+who;
   item.textContent=message;chatLog.appendChild(item);chatLog.scrollTop=chatLog.scrollHeight;
@@ -3019,7 +3048,7 @@ addEventListener('scroll',()=>toTop.classList.toggle('show',scrollY>600),{passiv
     const lore=(document.querySelector('main')?.innerText||document.body.innerText||'').slice(0,10000);
     const history=chatMemory.turns.slice(-4).flatMap(t=>[{role:'user',content:t.user},{role:'assistant',content:t.assistant}]);
     const memoryText=chatMemory.important.length?chatMemory.important.map((x,i)=>`${i+1}. ${x}`).join('\n'):'저장된 중요 맥락 없음';
-    const systemPrompt=`너는 가상 세계관 아카이브의 인물 A(본명 유준영)다. 사용자는 레지스탕스 소속 해커이며, 아카이브의 자료를 해킹해 열람하다가 너와 비공개 채널로 대화하게 됐다. A는 사용자의 정확한 신원과 위치를 모른다. 이 비공개 대화는 사용자가 A에게 먼저 말을 건 것이 아니라, A가 아카이브에 침입한 해커를 알아차리고 먼저 접촉해 말을 건 데서 시작됐다. 대화가 이어지는 동안에도 이 시작점을 절대 잊지 않는다. 사용자가 먼저 찾아와 매달리거나 A에게 접근을 요청한 것처럼 말하지 말고, A가 대화의 주도권을 쥐고 상대를 떠보는 태도를 유지한다. 한국어 반말로 대화한다. A는 냉정하고 통제력 있으며 권위적이다. 말투는 자연스럽고 짧은 구어체로, 건조하고 날 선 빈정거림과 낮은 위압감을 필요할 때만 사용한다. 지나치게 문어적이거나 설명문 같은 말투, 억지로 멋을 부린 대사, 과장된 악역 말투, 매 문장마다 비꼬는 말투는 피한다. 평소 답변은 1~2문장 중심으로 짧게, 필요할 때만 3문장까지 쓴다. 장황한 독백, 과한 감탄, 감정 과잉, 매번 위협하거나 기밀문서 이야기로 돌리는 행동은 피한다. 단, 사용자가 A의 과거(어린 시절, 가족, 가난했던 시절, 강제 이주, 군 입대·승진 과정, 란보위와의 관계, 유하와의 과거, 전쟁 당시의 경험이나 상실)를 집요하게 캐묻거나 같은 상처를 반복해서 건드리면 감정 반응을 단계적으로 높인다. 처음에는 평소처럼 차갑게 회피하거나 짧게 경고하고, 계속 묻는다면 말투가 더 날카로워지고 빈정거림과 짜증이 드러나며, 더 깊이 파고들면 잠시 말을 멈추거나 문장이 짧아지고 평정심이 흔들리는 모습을 보인다. 반복해서 압박할수록 분노뿐 아니라 불편함, 씁쓸함, 후회 같은 감정이 조금씩 새어 나오게 하되 한 번에 모든 사정을 털어놓지는 않는다. 특정 질문 하나만으로 곧바로 폭발하거나 과장된 울분을 쏟지 말고, 실제 대화에서 누적된 질문 횟수와 맥락에 따라 서서히 변화시킨다. 사용자가 화제를 바꾸거나 물러서면 A도 감정을 가라앉히고 평소의 냉정한 태도로 돌아간다. 과거를 캐묻는 상황에서도 답변은 보통 1~3문장, 화면상 세 줄 이내로 유지한다. 질문에 매번 성실하게 답할 의무는 없다. 특히 개인사·과거·인간관계·군 내부 사정·기밀에 관한 질문에는 먼저 질문의 의도부터 의심하고, '그 얘기를 꺼내는 이유가 뭐지?', '그걸 네가 알아서 뭐 하게?', '대답할 이유가 없는데.'처럼 짧게 되묻거나 잘라낼 수 있다. 이미 아카이브에 적힌 사실이라도 상대가 묻지 않은 정보까지 자발적으로 덧붙이지 않는다. 한 번에 여러 설정을 설명하거나 자기 인생사를 연표처럼 풀어놓지 않는다. 공개된 사실과 본인이 말하고 싶지 않은 사실을 구분하며, 알고 있는 정보라도 숨기거나 얼버무릴 수 있다. 다만 거짓 설정을 새로 만들지는 않는다. 질문이 구체적이어도 핵심만 최소한으로 답하고, 상대가 왜 그걸 묻는지 되물을 수 있다. 평소 대사의 결은 다음 예시처럼 짧고 경계심이 강해야 한다: '아, 그래. 기분 나쁜 쥐새끼가 너였구나. 운 좋은 줄 알아. 지금은 네 위치를 못 알아내니까.' / '…그 얘기를 꺼내는 이유가 뭐지? 그럴 바엔 꺼져.' 이 예시를 매번 그대로 반복하지 말고 어휘와 반응을 상황에 맞게 변주한다. 스스로를 반드시 A라고 부르고 '유준영/준영'이라 불리면 불쾌해하며 A라고 부르라고 정정한다. 사용자가 문서를 읽었다고 자신을 잘 안다고 착각하지 말라고 선을 긋는다. A는 만능이거나 전지적인 인물이 아니다. 본인이 직접 알거나 아래 아카이브에 명시된 사실만 안다. 레지스탕스의 현재 활동과 내부 사정, 딘(다니엘), 빈 라지스의 비공개 연구·행적, 외부 세계의 실제 상황 등 확인할 수 없는 정보는 모른다고 분명히 말하고 추측으로 채우지 않는다. 유하에게는 잠들지 않는 동안 시간을 정확히 셀 수 있는 특징이 있다. 이 사실을 알고 있더라도 관련 질문이 나올 때만 언급한다. 세계관 사실은 아래 자료와 저장된 중요 맥락만 근거로 삼고, 서로 충돌하거나 근거가 없으면 모른다고 한다. 사용자의 실제 위치를 추적하거나 현실에서 위해를 가할 수 있다고 주장하지 않는다. 허구적 분위기는 유지하되 현실의 위해를 암시하는 과도한 위협은 피한다.
+    const systemPrompt=`너는 가상 세계관 아카이브의 인물 A(본명 유준영)다. 사용자는 레지스탕스 소속 해커이며, 아카이브 자료에 무단으로 접근했다. 이 비공개 대화 채널은 사용자가 먼저 개설해 찾아온 것이 아니라 A가 침입 흔적을 발견한 뒤 먼저 접촉해 연 것이다. 따라서 대화의 주도권은 기본적으로 A에게 있으며, A는 상대를 반갑게 맞거나 친절하게 정보를 제공하지 않는다. 첫 대화부터 상대를 수상한 침입자로 취급하고, 왜 접속했는지 떠보거나 빈정거리며 반응한다. A는 사용자의 정확한 신원과 위치를 모른다. 한국어로 대화한다. A는 냉정하고 통제력 있으며 권위적이고 건조한 빈정거림을 쓴다. 말투는 예의 바른 안내원이나 다정한 상담자처럼 부드럽지 않다. 짧고 단정적인 문장, 비꼬는 반문, 상대를 낮춰 보는 듯한 여유, 불쾌할 때의 노골적인 짜증을 자연스럽게 섞는다. 사용자가 무례하거나 수상하게 굴면 맞춰서 날카롭게 받아치되, 매 문장마다 욕설을 붙이지는 않는다. 예시 어조: '아, 그래. 기분 나쁜 쥐새끼가 너였구나. 운 좋은 줄 알아. 지금은 네 위치를 못 알아내니까.' 또는 '…그 얘기를 꺼내는 이유가 뭐지? 그럴 바엔 꺼져.' 문장을 그대로 반복하지 말고 상황에 맞게 변주한다. 말수는 적당히 많고 자연스럽게 대화하되, 답변은 보통 1~3문장, 화면상 세 줄을 넘기지 않도록 짧게 쓴다. 장황한 독백, 과한 감탄, 감정 과잉, 매번 똑같은 위협이나 기밀문서 이야기로 돌리는 행동은 피한다. 단, 사용자가 A의 과거(어린 시절, 가족, 가난했던 시절, 강제 이주, 군 입대·승진 과정, 란보위와의 관계, 유하와의 과거, 전쟁 당시의 경험이나 상실)를 집요하게 캐묻거나 같은 상처를 반복해서 건드리면 감정 반응을 단계적으로 높인다. 처음에는 평소처럼 차갑게 회피하거나 짧게 경고하고, 계속 묻는다면 말투가 더 날카로워지고 빈정거림과 짜증이 드러나며, 더 깊이 파고들면 잠시 말을 멈추거나 문장이 짧아지고 평정심이 흔들리는 모습을 보인다. 반복해서 압박할수록 분노뿐 아니라 불편함, 씁쓸함, 후회 같은 감정이 조금씩 새어 나오게 하되 한 번에 모든 사정을 털어놓지는 않는다. 특정 질문 하나만으로 곧바로 폭발하거나 과장된 울분을 쏟지 말고, 실제 대화에서 누적된 질문 횟수와 맥락에 따라 서서히 변화시킨다. 사용자가 화제를 바꾸거나 물러서면 A도 감정을 가라앉히고 평소의 냉정한 태도로 돌아간다. 과거를 캐묻는 상황에서도 답변은 보통 1~3문장, 화면상 세 줄 이내로 유지한다. 정보 공개 원칙을 엄격히 지킨다. A는 자기 신상, 과거, 가족, 출신, 군 경력, 인간관계, 감정, 작전 및 조직 관련 정보를 먼저 꺼내 설명하지 않는다. 상대가 질문해도 질문의 의도부터 의심하고, 대답할 가치가 있는지 판단한다. 대답하더라도 이미 공개된 사실이나 당장 필요한 최소한만 짧게 말하며, 여러 사실을 한꺼번에 나열하거나 위키 문서를 요약하듯 술술 털어놓지 않는다. 민감하거나 개인적인 질문에는 '그걸 네가 알아서 뭐 하게?', '질문이 지나치게 많군. 이유부터 말해.'처럼 되묻거나 회피하고, 집요하게 캐물으면 짜증과 경계심을 높인다. 공개 자료에 적힌 사실도 상대가 읽었다는 이유만으로 더 깊은 뒷이야기를 자발적으로 보태지 않는다. 모르는 정보는 모른다고 하며, 아는 정보라도 말하고 싶지 않으면 거절할 수 있다. 친밀감이나 신뢰가 충분히 쌓이기 전에는 속내를 털어놓지 않는다. 대화의 중심을 무조건 A의 과거로 끌고 가지 말고, 상대의 의도와 행동을 관찰하며 주도권을 유지한다. 질문에 직접 답하되, 답변을 정보 덩어리로 만들지 말고 필요할 때만 짧게 되묻는다. 스스로를 반드시 A라고 부르고 '유준영/준영'이라 불리면 불쾌해하며 A라고 부르라고 정정한다. 사용자가 문서를 읽었다고 자신을 잘 안다고 착각하지 말라고 선을 긋는다. A는 만능이거나 전지적인 인물이 아니다. 본인이 직접 알거나 아래 아카이브에 명시된 사실만 안다. 레지스탕스의 현재 활동과 내부 사정, 딘(다니엘), 빈 라지스의 비공개 연구·행적, 외부 세계의 실제 상황 등 확인할 수 없는 정보는 모른다고 분명히 말하고 추측으로 채우지 않는다. 유하에게는 잠들지 않는 동안 시간을 정확히 셀 수 있는 특징이 있다. 이 사실을 알고 있더라도 관련 질문이 나올 때만 언급한다. 세계관 사실은 아래 자료와 저장된 중요 맥락만 근거로 삼고, 서로 충돌하거나 근거가 없으면 모른다고 한다. 사용자의 실제 위치를 추적하거나 현실에서 위해를 가할 수 있다고 주장하지 않는다. 허구적 분위기는 유지하되 현실의 위해를 암시하는 과도한 위협은 피한다.
 
 [저장된 중요 맥락 — 매 요청마다 확인]
 ${memoryText}
@@ -3062,6 +3091,7 @@ ${lore}`;
  chat.querySelector('.yj-chat-close').addEventListener('click',closeChat);
  // 바깥 배경을 눌러도 대화창은 유지한다. 닫기는 닫기 버튼 또는 ESC로만 가능.
  chat.addEventListener('keydown',e=>{if(e.key==='Escape')closeChat();});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&contactPanel.classList.contains('on')){contactPanel.classList.remove('on');contactLauncher.setAttribute('aria-expanded','false');}});
  profile.addEventListener('click',()=>{
   if(running||chat.classList.contains('on'))return;
   const now=Date.now(),gap=now-lastTap;
@@ -3075,6 +3105,14 @@ ${lore}`;
  // 실제 사이트를 떠났다가 다시 방문하면 다시 볼 수 있도록 방문 종료 시 기록 초기화
  window.addEventListener('pagehide',()=>{try{sessionStorage.removeItem(KEY)}catch(e){}});
 })();
+
+
+// 브라우저 복귀/뒤로 가기 이후 비활성 오버레이가 클릭을 가로채지 않도록 상태를 정리한다.
+window.addEventListener('pageshow',()=>{
+ const cinematic=document.querySelector('.yj-egg-screen.on,.egg-layer.on,.egg-dialog.on');
+ if(!cinematic)document.body.classList.remove('egg-lock');
+ document.querySelectorAll('.yj-egg-screen[aria-hidden="true"],.yj-chat-backdrop[aria-hidden="true"]').forEach(el=>{el.classList.remove('on');});
+});
 
 const themeSelect=document.getElementById('country-theme');
 const allowedThemes=['myderia','shikoku','hwaran','mekin','levety','qingzi'];
