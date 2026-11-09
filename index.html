@@ -2175,17 +2175,20 @@ addEventListener('scroll',()=>toTop.classList.toggle('show',scrollY>600),{passiv
  }
  // 첫 연타는 기존 이스터에그, 연출이 끝난 뒤 다시 연타하면 짧은 대화를 연다.
  const chat=document.createElement('div');chat.className='yj-chat-backdrop';chat.setAttribute('aria-hidden','true');
- chat.innerHTML='<div class="yj-chat-panel" role="dialog" aria-modal="true" aria-labelledby="yj-chat-name"><div class="yj-chat-kicker">WORLD ATLAS / PRIVATE CHANNEL</div><button type="button" class="yj-chat-close" aria-label="대화 닫기">닫기 ×</button><h3 class="yj-chat-name" id="yj-chat-name">A</h3><p class="yj-chat-line">또 기밀파일을 열어 봤더군.\n내가 직접 말하러 올 정도면 무슨 뜻인지 알겠지. 할 말 있어?</p><div class="yj-chat-log" aria-live="polite"></div><div class="yj-chat-options"></div><details class="yj-ai-settings"><summary>AI 연결 설정</summary><input class="yj-ai-endpoint" type="url" placeholder="Cloudflare Worker 주소" aria-label="AI 서버 주소"><button type="button" class="yj-ai-save">저장</button><div class="yj-ai-status">서버 주소를 저장하면 AI 응답을 사용합니다. 주소와 API 키는 별개이며 API 키를 이 사이트에 입력하지 마세요.</div></details><form class="yj-chat-compose"><input type="text" maxlength="240" autocomplete="off" placeholder="유준영에게 말을 건다…" aria-label="메시지 입력"><button type="submit">보내기</button></form><div class="yj-chat-note">대화는 이 창을 닫으면 초기화됩니다.</div></div>';
+ chat.innerHTML='<div class="yj-chat-panel" role="dialog" aria-modal="true" aria-labelledby="yj-chat-name"><div class="yj-chat-kicker">WORLD ATLAS / PRIVATE CHANNEL</div><button type="button" class="yj-chat-close" aria-label="대화 닫기">닫기 ×</button><h3 class="yj-chat-name" id="yj-chat-name">A</h3><p class="yj-chat-line">또 기밀파일을 열어 봤더군.\n내가 직접 말하러 올 정도면 무슨 뜻인지 알겠지. 할 말 있어?</p><div class="yj-chat-log" aria-live="polite"></div><div class="yj-chat-options"></div><details class="yj-ai-settings"><summary>AI 설정</summary><label class="yj-ai-toggle-row"><span>AI 대화 사용</span><input class="yj-ai-toggle" type="checkbox" checked></label><div class="yj-ai-status">AI가 켜져 있습니다. 설정은 이 기기에 저장됩니다.</div></details><form class="yj-chat-compose"><input type="text" maxlength="240" autocomplete="off" placeholder="유준영에게 말을 건다…" aria-label="메시지 입력"><button type="submit">보내기</button></form><div class="yj-chat-options yj-chat-controls"><button type="button" class="yj-chat-reset">대화 기록 초기화</button></div><div class="yj-chat-note">대화 기록과 AI 켜기/끄기 설정은 이 기기에 저장됩니다.</div></div>';
  document.body.appendChild(chat);
  const chatLine=chat.querySelector('.yj-chat-line'),chatOptions=chat.querySelector('.yj-chat-options');
  const chatLog=chat.querySelector('.yj-chat-log'),chatForm=chat.querySelector('.yj-chat-compose');
  const chatInput=chatForm.querySelector('input');
- const aiEndpointInput=chat.querySelector('.yj-ai-endpoint');
  const aiStatus=chat.querySelector('.yj-ai-status');
- const aiSave=chat.querySelector('.yj-ai-save');
- const AI_ENDPOINT_KEY='world-atlas-ai-endpoint';
- try{aiEndpointInput.value=localStorage.getItem(AI_ENDPOINT_KEY)||'';}catch(e){}
- aiSave.addEventListener('click',()=>{const value=aiEndpointInput.value.trim();try{if(value){new URL(value);localStorage.setItem(AI_ENDPOINT_KEY,value);}else localStorage.removeItem(AI_ENDPOINT_KEY);aiStatus.textContent=value?'AI 서버 주소를 저장했습니다. 연결 테스트는 메시지를 보낼 때 진행됩니다.':'AI 연결 주소를 비웠습니다. 기존 대화 방식으로 작동합니다.';}catch(e){aiStatus.textContent='올바른 https:// 서버 주소를 입력해 주세요.';}});
+ const aiToggle=chat.querySelector('.yj-ai-toggle');
+ const resetChatButton=chat.querySelector('.yj-chat-reset');
+ const DEFAULT_AI_ENDPOINT='https://black-flower-56ea.21sdes5809.workers.dev';
+ const AI_ENABLED_KEY='world-atlas-ai-enabled';
+ const CHAT_HISTORY_KEY='world-atlas-a-chat-history-v1';
+ try{aiToggle.checked=localStorage.getItem(AI_ENABLED_KEY)!=='false';}catch(e){aiToggle.checked=true;}
+ aiStatus.textContent=aiToggle.checked?'AI가 켜져 있습니다.':'AI가 꺼져 있습니다. 기본 대화 방식으로 답변합니다.';
+ aiToggle.addEventListener('change',()=>{try{localStorage.setItem(AI_ENABLED_KEY,String(aiToggle.checked));}catch(e){}aiStatus.textContent=aiToggle.checked?'AI가 켜졌습니다.':'AI가 꺼졌습니다. 기본 대화 방식으로 답변합니다.';});
  let conversationCount=0,lastTopic='';
  const closeChat=()=>{chat.classList.remove('on');chat.setAttribute('aria-hidden','true');};
  const addMessage=(who,message)=>{
@@ -2203,6 +2206,9 @@ addEventListener('scroll',()=>toTop.classList.toggle('show',scrollY>600),{passiv
  const choose=(items)=>items[(Math.random()*items.length)|0];
  
  const chatMemory={turns:[],topic:'',topicTurns:0,used:[]};
+ function saveChatHistory(){try{localStorage.setItem(CHAT_HISTORY_KEY,JSON.stringify(chatMemory.turns.slice(-40)));}catch(e){aiStatus.textContent='기기 저장 공간에 기록을 저장하지 못했습니다.';}}
+ function restoreChatHistory(){try{const saved=JSON.parse(localStorage.getItem(CHAT_HISTORY_KEY)||'[]');if(Array.isArray(saved)){chatMemory.turns=saved.filter(t=>t&&typeof t.user==='string'&&typeof t.assistant==='string').slice(-40);chatLog.replaceChildren();chatMemory.turns.forEach(t=>{addMessage('user',t.user);addMessage('yj',t.assistant);});}}catch(e){chatMemory.turns=[];}}
+ restoreChatHistory();
  function replyTo(raw){
   const msg=raw.trim();
   const lower=msg.toLowerCase();
@@ -2212,7 +2218,8 @@ addEventListener('scroll',()=>toTop.classList.toggle('show',scrollY>600),{passiv
   const has=(...words)=>words.some(w=>lower.includes(w));
   const remember=(answer,topic='일상')=>{
    chatMemory.turns.push({user:msg,assistant:answer,topic});
-   if(chatMemory.turns.length>18)chatMemory.turns.shift();
+   if(chatMemory.turns.length>40)chatMemory.turns.shift();
+   saveChatHistory();
    if(chatMemory.topic===topic)chatMemory.topicTurns++;
    else {chatMemory.topic=topic;chatMemory.topicTurns=1;}
    return answer;
@@ -2976,8 +2983,9 @@ addEventListener('scroll',()=>toTop.classList.toggle('show',scrollY>600),{passiv
   addMessage('user',message);chatInput.value='';
   chatInput.disabled=true;chatForm.querySelector('button').disabled=true;
   let response='';
-  const endpoint=(()=>{try{return localStorage.getItem(AI_ENDPOINT_KEY)||'';}catch(e){return '';}})();
-  if(endpoint){
+  const useAI=aiToggle.checked;
+  const endpoint=DEFAULT_AI_ENDPOINT;
+  if(useAI){
    aiStatus.textContent='AI가 답변을 작성하고 있습니다…';
    try{
     const lore=(document.querySelector('main')?.innerText||document.body.innerText||'').slice(0,22000);
@@ -2992,7 +3000,7 @@ ${lore}`;
     response=data.reply||data.output_text||data.choices?.[0]?.message?.content||data.message;
     if(typeof response!=='string'||!response.trim())throw new Error('응답 형식 오류');
     response=response.trim();
-    chatMemory.turns.push({user:message,assistant:response,topic:'AI 대화'});if(chatMemory.turns.length>18)chatMemory.turns.shift();
+    chatMemory.turns.push({user:message,assistant:response,topic:'AI 대화'});if(chatMemory.turns.length>40)chatMemory.turns.shift();saveChatHistory();
     aiStatus.textContent='AI 연결됨';
    }catch(err){
     console.error('AI request failed:',err);
@@ -3002,14 +3010,15 @@ ${lore}`;
   }else response=replyTo(message);
   window.setTimeout(()=>{
    addMessage('yj',response);
+   if(useAI && chatMemory.turns.length && chatMemory.turns[chatMemory.turns.length-1].user!==message){chatMemory.turns.push({user:message,assistant:response,topic:'AI 대화'});if(chatMemory.turns.length>40)chatMemory.turns.shift();saveChatHistory();}
    chatInput.disabled=false;chatForm.querySelector('button').disabled=false;
    chatInput.focus();
    showSuggestions(conversationCount%3===0?['다른 얘기 해 보자','그만할게']:['계속 얘기해','그 질문은 무슨 뜻이야?','그만할게']);
-  },endpoint?80:380+Math.min(message.length*8,520));
+  },useAI?80:380+Math.min(message.length*8,520));
  }
  function openChat(){
   if(running||!eggCompleted||chat.classList.contains('on'))return;
-  chatLog.replaceChildren();chatOptions.replaceChildren();conversationCount=0;lastTopic='';chatMemory.turns=[];chatMemory.topic='';chatMemory.topicTurns=0;chatMemory.used=[];chatMemory.filePressure=0;
+  chatOptions.replaceChildren();conversationCount=0;lastTopic='';chatMemory.topic='';chatMemory.topicTurns=chatMemory.turns.length;chatMemory.used=[];chatMemory.filePressure=0;chatLog.replaceChildren();chatMemory.turns.forEach(t=>{addMessage('user',t.user);addMessage('yj',t.assistant);});
   chatLine.textContent='또 기밀파일을 열어 봤더군.\n내가 직접 말하러 올 정도면 무슨 뜻인지 알겠지. 할 말 있어?';
   chat.classList.add('on');chat.setAttribute('aria-hidden','false');
   chatInput.disabled=false;chatForm.querySelector('button').disabled=false;
@@ -3017,6 +3026,7 @@ ${lore}`;
   chatInput.focus({preventScroll:true});
  }
  chatForm.addEventListener('submit',e=>{e.preventDefault();sendMessage();});
+ resetChatButton.addEventListener('click',()=>{if(!confirm('저장된 A와의 대화 기록을 모두 초기화할까요?'))return;chatMemory.turns=[];chatMemory.topic='';chatMemory.topicTurns=0;chatMemory.used=[];chatLog.replaceChildren();chatOptions.replaceChildren();try{localStorage.removeItem(CHAT_HISTORY_KEY);}catch(e){}chatLine.textContent='기록을 지웠군. 처음부터 다시 시작하자는 건가?';aiStatus.textContent='대화 기록을 초기화했습니다. AI 서버 주소는 유지됩니다.';});
  chat.querySelector('.yj-chat-close').addEventListener('click',closeChat);
  // 바깥 배경을 눌러도 대화창은 유지한다. 닫기는 닫기 버튼 또는 ESC로만 가능.
  chat.addEventListener('keydown',e=>{if(e.key==='Escape')closeChat();});
